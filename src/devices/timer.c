@@ -19,8 +19,13 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
+struct sleeping_thread {
+  struct thread *thread;
+  struct sempahore* sema;
+  int64_t wake_time;
+};
 
-static struct list sleep_list;
+static struct list sleeping_threads;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -84,10 +89,18 @@ int64_t timer_elapsed (int64_t then) { return timer_ticks () - then; }
    be turned on. */
 void timer_sleep (int64_t ticks)
 {
-  struct semaphore thread_sleep;
-  thread_sleep.value = ticks;
+  struct semaphore sleep_sema;
+  struct sleeping_thread entry_thread;
+  int64_t wake_up_time = timer_ticks() + ticks;
 
+  sema_init(&sleep_sema, 0);
 
+  entry_thread.sema = &sleep_sema;
+  entry_thread.wake_time = wake_up_time;
+  entry_thread.thread = thread_current();
+
+  sema_down(&sleep_sema);
+  list_push_back()
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
