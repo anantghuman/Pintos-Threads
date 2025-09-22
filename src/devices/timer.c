@@ -20,12 +20,12 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-struct sleeper_entry {
+typedef struct sleeper_entry {
   struct thread *thread;
   struct semaphore *sema;
   int64_t wake_time;
   struct list_elem elem;
-};
+} sleeper;
 
 static struct list sleepers = LIST_INITIALIZER (sleepers);
 
@@ -92,17 +92,19 @@ int64_t timer_elapsed (int64_t then) { return timer_ticks () - then; }
 void timer_sleep (int64_t ticks)
 {
   struct semaphore sleep_sema;
-  struct sleeper_entry entry;
+  sleeper *entry = malloc(sizeof(sleeper));
   int64_t wake_up_time = timer_ticks() + ticks;
 
   sema_init(&sleep_sema, 0);
 
-  entry.sema = &sleep_sema;
-  entry.wake_time = wake_up_time;
-  entry.thread = thread_current();
-
-  list_push_back(&sleepers, &entry.elem);
+  entry->sema = &sleep_sema;
+  entry->wake_time = wake_up_time;
+  entry->thread = thread_current();
   sema_down(&sleep_sema);
+  // list_less_func* l;
+  // void *aux;
+  // list_insert_ordered(&sleepers, &entry->elem, l, aux);
+  list_push_back(&sleepers, &entry->elem);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -157,10 +159,11 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
   struct list_elem *entry = list_begin(&sleepers);
   // not sure if this is ideal or if all of this can even happen in one tick when an interrupt happens
   while (entry != list_end(&sleepers)) {
-    struct sleeper_entry *sleeper = list_entry(entry, struct sleeper_entry, elem);
+    sleeper *sleeper = list_entry(entry, struct sleeper_entry, elem);
     if (ticks >= sleeper->wake_time) {
       sema_up(sleeper->sema);
       entry = list_remove(entry);
+      free(entry);
     } else {
       entry = list_next(entry);
     }
