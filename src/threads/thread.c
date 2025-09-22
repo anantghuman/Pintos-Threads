@@ -215,7 +215,7 @@ void thread_block (void)
   schedule ();
 }
 
-int priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux) {
+static bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux) {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
     return thread_a->priority > thread_b->priority;
@@ -249,11 +249,6 @@ void thread_unblock (struct thread *t)
     }
   }
   intr_set_level (old_level);
-  struct thread current_thread = *thread_current();
-  if (t->priority > thread_current()->priority) {
-    intr_yield_on_return();
-  }
-  list_insert_ordered (&ready_list, &current_thread.elem, priority_compare, NULL);
 }
 
 /* Returns the name of the running thread. */
@@ -340,7 +335,6 @@ void thread_set_priority (int new_priority)
   } else {
     if (thread_current() != idle_thread) {
       thread_current ()->priority = new_priority;
-      list_insert_ordered (&ready_list, &thread_current ()->elem, priority_compare, NULL);
       thread_yield ();
     } else {
       thread_current ()->priority = new_priority;
