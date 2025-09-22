@@ -100,11 +100,15 @@ void timer_sleep (int64_t ticks)
   entry->sema = &sleep_sema;
   entry->wake_time = wake_up_time;
   entry->thread = thread_current();
-  sema_down(&sleep_sema);
   // list_less_func* l;
   // void *aux;
   // list_insert_ordered(&sleepers, &entry->elem, l, aux);
+  enum intr_level old_level = intr_disable();
   list_push_back(&sleepers, &entry->elem);
+  intr_set_level(old_level);
+
+  sema_down(&sleep_sema);
+  free(entry);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -163,7 +167,6 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
     if (ticks >= sleeper->wake_time) {
       sema_up(sleeper->sema);
       entry = list_remove(entry);
-      free(entry);
     } else {
       entry = list_next(entry);
     }
