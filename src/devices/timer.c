@@ -22,7 +22,7 @@ static int64_t ticks;
 
 typedef struct sleeper_entry {
   struct thread *thread;
-  struct semaphore *sema;
+  struct semaphore sema;
   int64_t wake_time;
   struct list_elem elem;
 } sleeper;
@@ -87,27 +87,31 @@ int64_t timer_ticks (void)
    should be a value once returned by timer_ticks(). */
 int64_t timer_elapsed (int64_t then) { return timer_ticks () - then; }
 
+static bool wake_time_less (const struct list_elem *a,
+                const struct list_elem *b,
+                void *aux UNUSED) {
+  const sleeper *sa = list_entry (a, sleeper, elem);
+  const sleeper *sb = list_entry (b, sleeper, elem);
+  return sa->wake_time < sb->wake_time;
+}
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-void timer_sleep (int64_t ticks)
+void timer_sleep (int64_t ticks) 
 {
-  struct semaphore sleep_sema;
   sleeper *entry = malloc(sizeof(sleeper));
   int64_t wake_up_time = timer_ticks() + ticks;
 
-  sema_init(&sleep_sema, 0);
+  sema_init(&entry->sema, 0);
 
-  entry->sema = &sleep_sema;
   entry->wake_time = wake_up_time;
   entry->thread = thread_current();
-  // list_less_func* l;
-  // void *aux;
-  // list_insert_ordered(&sleepers, &entry->elem, l, aux);
+
   enum intr_level old_level = intr_disable();
-  list_push_back(&sleepers, &entry->elem);
+  list_insert_ordered (&sleepers, &entry->elem, wake_time_less, NULL);
   intr_set_level(old_level);
 
-  sema_down(&sleep_sema);
+  sema_down(&entry->sema);
   free(entry);
 }
 
@@ -161,14 +165,17 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   struct list_elem *entry = list_begin(&sleepers);
-  // not sure if this is ideal or if all of this can even happen in one tick when an interrupt happens
+
   while (entry != list_end(&sleepers)) {
     sleeper *sleeper = list_entry(entry, struct sleeper_entry, elem);
-    if (ticks >= sleeper->wake_time) {
-      sema_up(sleeper->sema);
+    if (ticks >= sleeper->wake_time) 
+    {
+      sema_up(&sleeper->sema);
       entry = list_remove(entry);
-    } else {
-      entry = list_next(entry);
+    } 
+    else 
+    {
+      break;
     }
   }
   thread_tick ();
