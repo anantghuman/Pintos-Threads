@@ -215,7 +215,7 @@ void thread_block (void)
   schedule ();
 }
 
-static bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux) {
+static bool priority_compare (const struct list_elem *a, const struct list_elem *b, void *aux) {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
     return thread_a->priority > thread_b->priority;
