@@ -45,15 +45,6 @@ static bool priority_compare_thread (const struct list_elem *a, const struct lis
     return thread_a->priority > thread_b->priority;
 }
 
-static bool priority_compare_sema (const struct list_elem *a, const struct list_elem *b, void *aux) {
-    struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
-    struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
-
-    struct thread *thread_a = list_entry(list_front(&sema_a->semaphore.waiters), struct thread, elem);
-    struct thread *thread_b = list_entry(list_front(&sema_b->semaphore.waiters), struct thread, elem);
-    return thread_a->priority > thread_b->priority;
-}
-
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -127,16 +118,26 @@ bool sema_try_down (struct semaphore *sema)
 void sema_up (struct semaphore *sema)
 {
   enum intr_level old_level;
+  struct thread *unblocked = NULL;
 
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) {
     list_sort(&sema->waiters, priority_compare_thread, NULL);
-    thread_unblock(list_entry (list_pop_front (&sema->waiters), struct thread, elem));
+    unblocked = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+    thread_unblock(unblocked);
   }
   sema->value++;
   intr_set_level (old_level);
+  if (unblocked && unblocked->priority > thread_current()->priority) {
+      if (intr_context()) {
+        intr_yield_on_return();
+      } else {
+        thread_yield();
+      }
+      return;
+    }
 }
 
 static void sema_test_helper (void *sema_);
@@ -298,7 +299,7 @@ void cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   sema_init (&waiter.semaphore, 0);
-  list_insert_ordered (&cond->waiters, &waiter.elem, priority_compare_sema, NULL);
+  list_insert_ordered (&cond->waiters, &waiter.elem, priority_compare_thread, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
