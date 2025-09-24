@@ -71,6 +71,30 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+void donate_priority(struct thread *update) {
+  struct thread *track = list_entry(list_front(&update->donators), struct thread, elem);
+  int64_t max_priority = update->priority;
+  while(track != list_end(&update->donators)) {
+    if (track->priority > max_priority) {
+      max_priority = track->priority;
+    }
+    track = list_next(track);
+  }
+  if (track->priority > max_priority) {
+      max_priority = track->priority;
+  }
+  thread_set_new_priority(update, max_priority);
+  if (update->status == THREAD_BLOCKED && update->blocker != NULL && update->blocker->holder != NULL && update->blocker->holder->priority < update->priority) {
+    donate_priority(update->blocker->holder);
+  }
+}
+
+void thread_set_new_priority(struct thread *update, int prio) {
+
+}
+
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
