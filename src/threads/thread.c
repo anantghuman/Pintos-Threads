@@ -270,7 +270,21 @@ void thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
-  list_insert_ordered (&ready_list, &t->elem, priority_compare, NULL);
+  struct list_elem *tracker = list_begin(&ready_list);
+  bool inserted = false;
+  while (tracker != list_end(&ready_list)) {
+    struct thread *curr = list_entry(tracker, struct thread, elem);
+    if (t->priority > curr->priority) {
+      list_insert(&ready_list, &t->elem);
+      inserted = true;
+      break;
+    }
+    tracker = list_next(tracker);
+  }
+  if (!inserted) {
+    list_push_back(&ready_list, &t->elem);
+  }
+
   t->status = THREAD_READY;
 
   if (thread_current() != idle_thread && t->priority > thread_current()->priority) {

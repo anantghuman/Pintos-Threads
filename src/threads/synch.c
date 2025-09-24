@@ -216,7 +216,6 @@ void lock_acquire (struct lock *lock)
     thread_current()->blocker = lock;
     if (thread_current()->priority > lock->holder->priority) {
       thread_current()->blocker = lock;
-
     }
   }
   sema_down (&lock->semaphore);
