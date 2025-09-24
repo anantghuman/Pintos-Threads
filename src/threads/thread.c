@@ -275,7 +275,7 @@ void thread_unblock (struct thread *t)
   while (tracker != list_end(&ready_list)) {
     struct thread *curr = list_entry(tracker, struct thread, elem);
     if (t->priority > curr->priority) {
-      list_insert(&ready_list, &t->elem);
+      list_insert(tracker, &t->elem);
       inserted = true;
       break;
     }
@@ -286,7 +286,7 @@ void thread_unblock (struct thread *t)
   }
 
   t->status = THREAD_READY;
-
+  intr_set_level (old_level);
   if (thread_current() != idle_thread && t->priority > thread_current()->priority) {
     if (intr_context()) {
       intr_yield_on_return();
@@ -294,7 +294,6 @@ void thread_unblock (struct thread *t)
       thread_yield ();
     }
   }
-  intr_set_level (old_level);
 }
 
 /* Returns the name of the running thread. */
