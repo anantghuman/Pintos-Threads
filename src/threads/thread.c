@@ -290,7 +290,7 @@ void thread_unblock (struct thread *t)
   if (thread_current() != idle_thread && t->priority > thread_current()->priority) {
     if (intr_context()) {
       intr_yield_on_return();
-    } else {
+    } else if (old_level == INTR_ON) {
       thread_yield ();
     }
   }
