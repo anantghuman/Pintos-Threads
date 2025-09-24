@@ -84,13 +84,21 @@ void donate_priority(struct thread *update) {
       max_priority = track->priority;
   }
   thread_set_new_priority(update, max_priority);
-  if (update->status == THREAD_BLOCKED && update->blocker != NULL && update->blocker->holder != NULL && update->blocker->holder->priority < update->priority) {
+  if (update->status == THREAD_BLOCKED && update->blocker != NULL && 
+    update->blocker->holder != NULL && update->blocker->holder->priority < update->priority) {
     donate_priority(update->blocker->holder);
   }
 }
 
 void thread_set_new_priority(struct thread *update, int prio) {
-
+  update->priority = prio;
+  if (update == thread_current() && !list_empty(&ready_list)){
+    struct thread *highest_prio = list_entry(list_front(&ready_list), struct thread, elem);
+    if (update->priority < highest_prio->priority) {
+      thread_yield();
+    }
+  }
+  
 }
 
 
@@ -480,6 +488,8 @@ static void init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->og_priority = priority;
   t->magic = THREAD_MAGIC;
+  t->blocker = NULL;
+  list_init(&t->donators);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
