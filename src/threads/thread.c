@@ -282,6 +282,26 @@ void thread_unblock (struct thread *t)
   }
 }
 
+// donates the priority forward in the blocked list 
+void donate_forward (struct thread *original){
+  while (original && original->blocker && original->blocker->holder) {
+    struct thread* holdr = original->blocker->holder;
+    donate(holdr, original);
+    if (holdr < original->priority){
+     holdr->priority = original->priority;
+    }
+    original->blocker = holdr->blocker;
+  }
+}
+
+void remove_donate(struct thread* remove_from, struct lock* lock) {
+  struct list_elem* tracker = list_begin(&remove_from->donators);
+  while (tracker != list_end(&remove_from->donators)) {
+    struct thread *original = list_entry(tracker, struct thread, donation_elem);
+    
+  }
+}
+
 /* Returns the name of the running thread. */
 const char *thread_name (void) { return thread_current ()->name; }
 
