@@ -100,6 +100,7 @@ struct thread
   int og_priority;
   struct list donators;
   struct lock *blocker;
+  struct list_elem donation_elem;
 
 #ifdef USERPROG
   /* Owned by userprog/process.c. */

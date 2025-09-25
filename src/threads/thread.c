@@ -71,37 +71,23 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-void donate_priority(struct thread *update) {
-  struct thread *track = list_entry(list_front(&update->donators), struct thread, elem);
-  int64_t max_priority = update->priority;
-  while(track != list_end(&update->donators)) {
-    if (track->priority > max_priority) {
-      max_priority = track->priority;
-    }
-    track = list_next(track);
-  }
-  if (track->priority > max_priority) {
-      max_priority = track->priority;
-  }
-  thread_set_new_priority(update, max_priority);
-  if (update->status == THREAD_BLOCKED && update->blocker != NULL && 
-    update->blocker->holder != NULL && update->blocker->holder->priority < update->priority) {
-    donate_priority(update->blocker->holder);
-  }
+
+static bool dono_prio_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  const struct thread *ta = list_entry(a, struct thread, donation_elem);
+  const struct thread *tb = list_entry(b, struct thread, donation_elem);
+  return ta->priority > tb->priority;
 }
 
-void thread_set_new_priority(struct thread *update, int prio) {
-  update->priority = prio;
-  if (update == thread_current() && !list_empty(&ready_list)){
-    struct thread *highest_prio = list_entry(list_front(&ready_list), struct thread, elem);
-    if (update->priority < highest_prio->priority) {
-      thread_yield();
-    }
+static void donate (struct thread *holder, struct thread *donor) {
+  struct list_elem *tracker = list_begin(&holder->donators);
+  while (tracker != list_end(&holder->donators)) {
+    struct thread *t = list_entry(tracker, struct thread, donation_elem);
+    if (t == donor)
+      return;
+    tracker = list_next(tracker);
   }
-  
+  list_insert_ordered(&holder->donators, &donor->donation_elem, dono_prio_compare, NULL);
 }
-
-
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -375,17 +361,17 @@ void thread_foreach (thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority (int new_priority)
 {
-  if (new_priority >= thread_current() -> priority) {
-    thread_current ()->priority = new_priority;
-  } else {
-    if (thread_current() != idle_thread) {
-      thread_current ()->priority = new_priority;
+  enum intr_level old = intr_disable ();
+  struct thread *cur = thread_current ();
+  cur->og_priority = new_priority; 
+  //need to recalculate prio           
+
+  if (!list_empty (&ready_list)) {
+    struct thread *top = list_entry (list_front (&ready_list), struct thread, elem);
+    if (top->priority > cur->priority) {
       thread_yield ();
-    } else {
-      thread_current ()->priority = new_priority;
     }
   }
-  
 }
 
 /* Returns the current thread's priority. */
