@@ -263,7 +263,6 @@ void thread_unblock (struct thread *t)
     if (t->priority > curr->priority) {
       list_insert(tracker, &t->elem);
       inserted = true;
-      break;
     }
     tracker = list_next(tracker);
   }
@@ -404,7 +403,7 @@ void thread_set_priority (int new_priority)
   enum intr_level old = intr_disable ();
   struct thread *cur = thread_current ();
   cur->og_priority = new_priority;
-  cur->priority = reset_priority (cur);   // ✅ recalc properly
+  cur->priority = reset_priority (cur); 
   if (!list_empty (&ready_list)) {
     struct thread *top = list_entry (list_front (&ready_list), struct thread, elem);
     if (top->priority > cur->priority) {
