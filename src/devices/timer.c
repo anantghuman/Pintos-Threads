@@ -99,7 +99,7 @@ static bool wake_time_less (const struct list_elem *a,
    be turned on. */
 void timer_sleep (int64_t ticks) 
 {
-  sleeper *entry = malloc(sizeof(sleeper));
+  sleeper *entry;
   int64_t wake_up_time = timer_ticks() + ticks;
 
   sema_init(&entry->sema, 0);
@@ -112,7 +112,6 @@ void timer_sleep (int64_t ticks)
   intr_set_level(old_level);
 
   sema_down(&entry->sema);
-  free(entry);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -167,10 +166,10 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
   struct list_elem *entry = list_begin(&sleepers);
 
   while (entry != list_end(&sleepers)) {
-    sleeper *sleeper = list_entry(entry, struct sleeper_entry, elem);
-    if (ticks >= sleeper->wake_time) 
+    sleeper *slp = list_entry(entry, sleeper, elem);
+    if (ticks >= slp->wake_time) 
     {
-      sema_up(&sleeper->sema);
+      sema_up(&slp->sema);
       entry = list_remove(entry);
     } 
     else 
