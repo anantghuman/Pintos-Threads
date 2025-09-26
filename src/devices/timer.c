@@ -20,7 +20,8 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-typedef struct sleeper_entry {
+typedef struct sleeper_entry 
+{
   struct thread *thread;
   struct semaphore sema;
   int64_t wake_time;
@@ -89,7 +90,8 @@ int64_t timer_elapsed (int64_t then) { return timer_ticks () - then; }
 
 static bool wake_time_less (const struct list_elem *a,
                 const struct list_elem *b,
-                void *aux UNUSED) {
+                void *aux UNUSED) 
+{
   const sleeper *sa = list_entry (a, sleeper, elem);
   const sleeper *sb = list_entry (b, sleeper, elem);
   return sa->wake_time < sb->wake_time;
@@ -165,7 +167,8 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   struct list_elem *entry = list_begin(&sleepers);
 
-  while (entry != list_end(&sleepers)) {
+  while (entry != list_end(&sleepers)) 
+  {
     sleeper *slp = list_entry(entry, sleeper, elem);
     if (ticks >= slp->wake_time) 
     {

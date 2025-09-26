@@ -72,21 +72,26 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
 
-static bool dono_prio_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+static bool dono_prio_compare (const struct list_elem *a, 
+              const struct list_elem *b, void *aux UNUSED) 
+{
   const struct thread *ta = list_entry(a, struct thread, donation_elem);
   const struct thread *tb = list_entry(b, struct thread, donation_elem);
   return ta->priority > tb->priority;
 }
 
-static void donate (struct thread *holder, struct thread *donor) {
+static void donate (struct thread *holder, struct thread *donor) 
+{
   struct list_elem *tracker = list_begin(&holder->donators);
-  while (tracker != list_end(&holder->donators)) {
+  while (tracker != list_end(&holder->donators)) 
+  {
     struct thread *t = list_entry(tracker, struct thread, donation_elem);
     if (t == donor)
       return;
     tracker = list_next(tracker);
   }
-  list_insert_ordered(&holder->donators, &donor->donation_elem, dono_prio_compare, NULL);
+  list_insert_ordered(&holder->donators, &donor->donation_elem, 
+                                      dono_prio_compare, NULL);
 }
 
 /* Initializes the threading system by transforming the code
@@ -142,10 +147,10 @@ void thread_tick (void)
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
-#ifdef USERPROG
+  #ifdef USERPROG
   else if (t->pagedir != NULL)
     user_ticks++;
-#endif
+  #endif
   else
     kernel_ticks++;
 
@@ -233,7 +238,9 @@ void thread_block (void)
   schedule ();
 }
 
-static bool priority_compare (const struct list_elem *a, const struct list_elem *b, void *aux) {
+static bool priority_compare (const struct list_elem *a, 
+                  const struct list_elem *b, void *aux) 
+{
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
     return thread_a->priority > thread_b->priority;
@@ -252,42 +259,52 @@ void thread_unblock (struct thread *t)
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
-
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
   struct list_elem *tracker = list_begin(&ready_list);
   bool inserted = false;
-  while (tracker != list_end(&ready_list)) {
+  while (tracker != list_end(&ready_list)) 
+  {
     struct thread *curr = list_entry(tracker, struct thread, elem);
-    if (t->priority > curr->priority) {
+    if (t->priority > curr->priority) 
+    {
       list_insert(tracker, &t->elem);
       inserted = true;
+      break;
     }
     tracker = list_next(tracker);
   }
-  if (!inserted) {
+  if (!inserted) 
+  {
     list_push_back(&ready_list, &t->elem);
   }
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  if (thread_current() != idle_thread && t->priority > thread_current()->priority) {
-    if (intr_context()) {
+  if (thread_current() != idle_thread && t->priority > 
+                            thread_current()->priority) 
+  {
+    if (intr_context()) 
+    {
       intr_yield_on_return();
-    } else if (old_level == INTR_ON) {
+    } else if (old_level == INTR_ON) 
+    {
       thread_yield ();
     }
   }
 }
 
-// donates the priority forward in the blocked list 
-void donate_forward (struct thread *original) {
+/* donates the priority forward in the blocked list */
+void donate_forward (struct thread *original) 
+{
   struct lock *blocked = original->blocker;
-  while (blocked && blocked->holder) {
+  while (blocked && blocked->holder) 
+  {
     struct thread* holdr = blocked->holder;
     donate(holdr, original);
-    if (holdr->priority < original->priority){
+    if (holdr->priority < original->priority)
+    {
      holdr->priority = original->priority;
     }
     original = holdr;
@@ -295,25 +312,35 @@ void donate_forward (struct thread *original) {
   }
 }
 
-void remove_donate(struct thread* remove_from, struct lock* lock) {
+/* removes the donators*/
+void remove_donate(struct thread* remove_from, struct lock* lock) 
+{
   struct list_elem* tracker = list_begin(&remove_from->donators);
-  while (tracker != list_end(&remove_from->donators)) {
+  while (tracker != list_end(&remove_from->donators)) 
+  {
     struct thread *original = list_entry(tracker, struct thread, donation_elem);
-    if (original->blocker == lock) {
+    if (original->blocker == lock) 
+    {
       tracker = list_remove(tracker);
-    } else {
+    } 
+    else 
+    {
       tracker = list_next(tracker);
     }
   }
   remove_from->priority = reset_priority(remove_from);
 }
 
-int reset_priority(struct thread *t) {
+/* sets the priority back to the original priority */
+int reset_priority(struct thread *t) 
+{
   int priority = 0;
   struct list_elem* tracker = list_begin(&t->donators);
-  while (tracker != list_end(&t->donators)) {
+  while (tracker != list_end(&t->donators)) 
+  {
     struct thread *original = list_entry(tracker, struct thread, donation_elem);
-    if (original->priority > priority) {
+    if (original->priority > priority) 
+    {
       priority = original->priority;
     }
     tracker = list_next(tracker);
@@ -404,12 +431,16 @@ void thread_set_priority (int new_priority)
   struct thread *cur = thread_current ();
   cur->og_priority = new_priority;
   cur->priority = reset_priority (cur); 
-  if (!list_empty (&ready_list)) {
-    struct thread *top = list_entry (list_front (&ready_list), struct thread, elem);
-    if (top->priority > cur->priority) {
+  if (!list_empty (&ready_list)) 
+  {
+    struct thread *top = list_entry (list_front (&ready_list),
+     struct thread, elem);
+    if (top->priority > cur->priority) 
+    {
       thread_yield ();
     }
   }
+  intr_set_level(old);
 }
 
 /* Returns the current thread's priority. */
