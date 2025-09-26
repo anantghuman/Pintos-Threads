@@ -99,19 +99,19 @@ static bool wake_time_less (const struct list_elem *a,
    be turned on. */
 void timer_sleep (int64_t ticks) 
 {
-  sleeper *entry;
+  sleeper entry;
   int64_t wake_up_time = timer_ticks() + ticks;
 
-  sema_init(&entry->sema, 0);
+  sema_init(&entry.sema, 0);
 
-  entry->wake_time = wake_up_time;
-  entry->thread = thread_current();
+  entry.wake_time = wake_up_time;
+  entry.thread = thread_current();
 
   enum intr_level old_level = intr_disable();
-  list_insert_ordered (&sleepers, &entry->elem, wake_time_less, NULL);
+  list_insert_ordered (&sleepers, &entry.elem, wake_time_less, NULL);
   intr_set_level(old_level);
 
-  sema_down(&entry->sema);
+  sema_down(&entry.sema);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

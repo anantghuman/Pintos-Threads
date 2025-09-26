@@ -291,6 +291,7 @@ void donate_forward (struct thread *original) {
     if (holdr->priority < original->priority){
      holdr->priority = original->priority;
     }
+    original = holdr;
     blocked = holdr->blocker;
   }
 }
@@ -310,11 +311,13 @@ void remove_donate(struct thread* remove_from, struct lock* lock) {
 
 int reset_priority(struct thread *t) {
   int priority = 0;
-  if (!list_empty(&t->donators)) {
-    struct list_elem *highest_priority = list_begin(&t->donators);
-    int temp = list_entry(highest_priority, struct thread, donation_elem) -> priority;
-    if (temp > priority) 
-      priority = temp;
+  struct list_elem* tracker = list_begin(&t->donators);
+  while (tracker != list_end(&t->donators)) {
+    struct thread *original = list_entry(tracker, struct thread, donation_elem);
+    if (original->priority > priority) {
+      priority = original->priority;
+    }
+    tracker = list_next(tracker);
   }
   return priority > t->og_priority ? priority : t->og_priority;
 }
@@ -400,9 +403,8 @@ void thread_set_priority (int new_priority)
 {
   enum intr_level old = intr_disable ();
   struct thread *cur = thread_current ();
-  cur->og_priority = new_priority; 
-  //need to recalculate prio           
-
+  cur->og_priority = new_priority;
+  cur->priority = reset_priority (cur);   // ✅ recalc properly
   if (!list_empty (&ready_list)) {
     struct thread *top = list_entry (list_front (&ready_list), struct thread, elem);
     if (top->priority > cur->priority) {
