@@ -189,7 +189,7 @@ struct Elf32_Phdr
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-static bool setup_stack (void **esp, char *file_name);
+static bool setup_stack (void **esp, const char *file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -214,8 +214,13 @@ bool load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  char file_name_copy[PGSIZE];
+  strlcpy (file_name_copy, file_name, sizeof file_name_copy);
+  char *ret_ptr;
+  char *prog_name = strtok_r (file_name_copy, " ", &ret_ptr);
+
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (prog_name);
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
@@ -293,7 +298,7 @@ bool load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, file_name))
+  if (!setup_stack (esp, (char*) file_name))
     goto done;
 
   /* Start address. */
@@ -416,7 +421,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-static bool setup_stack (void **esp, char *file_name)
+static bool setup_stack (void **esp, const char* file_name)
 {
 
   char *argv[128];
@@ -438,30 +443,42 @@ static bool setup_stack (void **esp, char *file_name)
           token = strtok_r(NULL, " ", &temp);
         }
         for (int i = argc - 1; i >= 0; i--) {
-          *esp -= strlen(argv[i]) + 1;
-          memcpy(*esp, argv[i], strlen(argv[i]) + 1);    
+          *esp = (uint8_t *) *esp - (strlen(argv[i]) + 1);
+          memcpy(*esp, argv[i], strlen(argv[i]) + 1);
+          arg_address[i] = *esp;  
         }
         uintptr_t misalign = (uintptr_t)(*esp) % 4;
           if (misalign) {
-            *esp -= misalign;
-          }
-          *esp -= sizeof(char *);
-          *(char **)(*esp) = NULL;
-          for (int i = argc - 1; i >= 0; i--) {
-            *esp -= sizeof(char *);
-            memcpy(*esp, &arg_address[i], sizeof(char *));
-          }
-          char **argv_start = (char **)*esp;
-          *esp -= sizeof(char **);
-          memcpy(*esp, &argv_start, sizeof(char **));
-          *esp -= sizeof(int);
-          memcpy(*esp, &argc, sizeof(int));
-          *esp -= sizeof(void *);
-          *(void **)(*esp) = 0;
+                *esp = (uint8_t *) *esp - misalign;
+            }
+
+            // null sentinel
+            *esp = (uint8_t *) *esp - sizeof(char *);
+            *(char **)(*esp) = NULL;
+
+            // push addresses of args
+            for (int i = argc - 1; i >= 0; i--) {
+                *esp = (uint8_t *) *esp - sizeof(char *);
+                memcpy(*esp, &arg_address[i], sizeof(char *));
+            }
+
+            // argv pointer
+            char **argv_start = *esp;
+            *esp = (uint8_t *) *esp - sizeof(char **);
+            memcpy(*esp, &argv_start, sizeof(char **));
+
+            // argc
+            *esp = (uint8_t *) *esp - sizeof(int);
+            memcpy(*esp, &argc, sizeof(int));
+
+            // fake return address
+            *esp = (uint8_t *) *esp - sizeof(void *);
+            *(void **)(*esp) = 0;
       } else {
         palloc_free_page (kpage);
       }
     }
+    hex_dump((uintptr_t)*esp, *esp, 128, true);
     return success;
 }
 
