@@ -420,34 +420,49 @@ static bool setup_stack (void **esp, char *file_name)
 {
 
   char *argv[128];
+  char *arg_address[128];
   int argc = 0;
   char *temp;
   char *token = strtok_r(file_name, " ", &temp);
-  while (token != NULL) 
-    {
-      argv[argc] = token;
-      argc++;
-      token = strtok_r(NULL, " ", &temp);
-    }
-
-  for (int i = argc - 1; i >= 0; i--)
-    {
-      *esp -= strlen(argv[i]) + 1;
-      memcpy(*esp, argv[i], strlen(argv[i]) + 1);    
-    }
   uint8_t *kpage;
   bool success = false;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL)
-    {
+  if (kpage != NULL) {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      if (success) {
         *esp = PHYS_BASE;
-      else
+        while (token != NULL) {
+          argv[argc] = token;
+          argc++;
+          token = strtok_r(NULL, " ", &temp);
+        }
+        for (int i = argc - 1; i >= 0; i--) {
+          *esp -= strlen(argv[i]) + 1;
+          memcpy(*esp, argv[i], strlen(argv[i]) + 1);    
+        }
+        uintptr_t misalign = (uintptr_t)(*esp) % 4;
+          if (misalign) {
+            *esp -= misalign;
+          }
+          *esp -= sizeof(char *);
+          *(char **)(*esp) = NULL;
+          for (int i = argc - 1; i >= 0; i--) {
+            *esp -= sizeof(char *);
+            memcpy(*esp, &arg_address[i], sizeof(char *));
+          }
+          char **argv_start = (char **)*esp;
+          *esp -= sizeof(char **);
+          memcpy(*esp, &argv_start, sizeof(char **));
+          *esp -= sizeof(int);
+          memcpy(*esp, &argc, sizeof(int));
+          *esp -= sizeof(void *);
+          *(void **)(*esp) = 0;
+      } else {
         palloc_free_page (kpage);
+      }
     }
-  return success;
+    return success;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
