@@ -37,8 +37,18 @@ tid_t process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char *name = palloc_get_page (0);
+  if (name == NULL) {
+    palloc_free_page (fn_copy);
+    return TID_ERROR;
+  }
+  strlcpy (name, file_name, PGSIZE);
+  char *temp;
+  name = strtok_r (name, " ", &temp);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  free(name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
