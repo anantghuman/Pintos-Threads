@@ -83,7 +83,9 @@ static void start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait (tid_t child_tid UNUSED) { return -1; }
+int process_wait (tid_t child_tid UNUSED) {
+  while (true);
+}
 
 /* Free the current process's resources. */
 void process_exit (void)
@@ -187,7 +189,7 @@ struct Elf32_Phdr
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, char *file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -291,7 +293,7 @@ bool load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, file_name))
     goto done;
 
   /* Start address. */
@@ -414,8 +416,25 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-static bool setup_stack (void **esp)
+static bool setup_stack (void **esp, char *file_name)
 {
+
+  char *argv[128];
+  int argc = 0;
+  char *temp;
+  char *token = strtok_r(file_name, " ", &temp);
+  while (token != NULL) 
+    {
+      argv[argc] = token;
+      argc++;
+      token = strtok_r(NULL, " ", &temp);
+    }
+
+  for (int i = argc - 1; i >= 0; i--)
+    {
+      *esp -= strlen(argv[i]) + 1;
+      memcpy(*esp, argv[i], strlen(argv[i]) + 1);    
+    }
   uint8_t *kpage;
   bool success = false;
 
